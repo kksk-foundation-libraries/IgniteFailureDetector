@@ -99,12 +99,14 @@ public class IgniteFailureDetector {
 
 	public void start() {
 		igniteEx.events().localListen(e -> {
-			DiscoveryEvent event = (DiscoveryEvent) e;
-			int nodes = normalNodes.get();
-			if (event.topologyNodes().stream().filter(n -> !n.isClient()).count() < nodes - 1) {
-				set(Status.FAILED);
-			} else {
-				set(Status.RUNNING);
+			if (e instanceof DiscoveryEvent) {
+				DiscoveryEvent event = (DiscoveryEvent) e;
+				int nodes = normalNodes.get();
+				if (event.topologyNodes().stream().filter(n -> !n.isClient()).count() < nodes - 1) {
+					set(Status.FAILED);
+				} else {
+					set(Status.RUNNING);
+				}
 			}
 			return true;
 		}, EventType.EVT_NODE_FAILED, EventType.EVT_NODE_LEFT, EventType.EVT_NODE_JOINED);
