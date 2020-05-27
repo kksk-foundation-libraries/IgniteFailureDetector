@@ -12,6 +12,7 @@ import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.cache.TreeCache;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.EventType;
 import org.apache.ignite.internal.IgniteEx;
 
@@ -34,7 +35,7 @@ public class IgniteFailureDetector {
 		byte[] init = client.getData().forPath(zkWatchPath);
 		int initNodes = getInt(init, 0);
 		normalNodes.set(initNodes);
-		if (ignite.cluster().nodes().size() < initNodes - 1) {
+		if (igniteEx.cluster().nodes().stream().filter(n -> !n.isClient()).count() < initNodes - 1) {
 			set(Status.FAILED);
 		} else {
 			set(Status.RUNNING);
@@ -44,7 +45,7 @@ public class IgniteFailureDetector {
 			byte[] data = event.getData().getData();
 			int nodes = getInt(data, 0);
 			normalNodes.set(nodes);
-			if (ignite.cluster().nodes().size() < nodes - 1) {
+			if (igniteEx.cluster().nodes().stream().filter(n -> !n.isClient()).count() < nodes - 1) {
 				set(Status.FAILED);
 			} else {
 				set(Status.RUNNING);
@@ -97,9 +98,10 @@ public class IgniteFailureDetector {
 	}
 
 	public void start() {
-		igniteEx.events().localListen(event -> {
+		igniteEx.events().localListen(e -> {
+			DiscoveryEvent event = (DiscoveryEvent) e;
 			int nodes = normalNodes.get();
-			if (igniteEx.cluster().nodes().size() < nodes - 1) {
+			if (event.topologyNodes().stream().filter(n -> !n.isClient()).count() < nodes - 1) {
 				set(Status.FAILED);
 			} else {
 				set(Status.RUNNING);
